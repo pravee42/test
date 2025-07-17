@@ -1,0 +1,82 @@
+name: React Native iOS Simulator Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-simulator:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install JavaScript Dependencies
+        run: npm install -f
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('**/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
+      - name: Clean & Install CocoaPods
+        run: |
+          cd ios
+          rm -rf Pods Podfile.lock
+          pod install --repo-update
+
+      - name: Select Xcode Version 16.2
+        run: sudo xcode-select -switch /Applications/Xcode_16.2.app
+
+      - name: Build iOS App for Simulator
+        run: |
+          cd ios
+          xcodebuild -workspace Ridemap.xcworkspace -scheme Ridemap \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            -derivedDataPath build/derivedData \
+            -arch arm64 \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Locate Simulator App Bundle
+        id: locate_app_bundle
+        run: |
+          APP_BUNDLE_PATH=$(find ios/build/derivedData -name "Ridemap.app" -print -quit)
+          echo "SIMULATOR_APP_BUNDLE_PATH=$APP_BUNDLE_PATH"
+          echo "SIMULATOR_APP_BUNDLE_PATH=$APP_BUNDLE_PATH" >> $GITHUB_OUTPUT
+
+      - name: Ensure Simulator Build Exists
+        if: ${{ steps.locate_app_bundle.outputs.SIMULATOR_APP_BUNDLE_PATH == '' }}
+        run: |
+          echo "❌ Failed to locate Simulator build"
+          exit 1
+
+      - name: Archive Simulator App Bundle
+        run: |
+          zip -r RidemapSimulator.zip ${{ steps.locate_app_bundle.outputs.SIMULATOR_APP_BUNDLE_PATH }}
+
+      - name: Upload Simulator App Bundle as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator-build
+          path: RidemapSimulator.zip
+
+      - name: Clean up Build Files
+        if: always()
+        run: |
+          rm -rf ios/build
+          rm -rf ~/Library/Developer/Xcode/DerivedData
