@@ -21,6 +21,7 @@
     "@react-native-firebase/firestore": "^22.4.0",
     "@react-native-firebase/in-app-messaging": "^22.4.0",
     "@react-native-firebase/messaging": "^22.4.0",
+    "@react-native-google-signin/google-signin": "^15.0.0",
     "@react-native/new-app-screen": "0.80.1",
     "react": "19.1.0",
     "react-native": "0.80.1",
